@@ -2,28 +2,27 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController),typeof(PlayerInputState),typeof(StaminaSystem))]
 public class PlayerMotor:MonoBehaviour{
  public MovementSettings settings=new MovementSettings();public Transform cameraTransform;public Animator animator;public LayerMask worldMask=~0;
- CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity;float forwardRamp,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1;bool doubleJumpUsed,crouched,sliding,crouchHeld;
+ CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity;float forwardRamp,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1,nextSpeedLog;bool doubleJumpUsed,crouched,sliding,crouchHeld;
  public string CurrentTechnique{get;private set;}="Idle";public Vector3 Velocity=>velocity;
  public Vector2 MoveInput=>input!=null?input.Move:Vector2.zero;
  public float StickMagnitude=>input!=null?Mathf.Clamp01(input.Move.magnitude):0f;
  public float HorizontalSpeed=>new Vector2(velocity.x,velocity.z).magnitude;
  void Awake(){cc=GetComponent<CharacterController>();input=GetComponent<PlayerInputState>();stamina=GetComponent<StaminaSystem>();stamina.Initialize(settings);SetStandingGeometry();}
- void Update(){if(Time.timeScale==0){input.ConsumeFrameButtons();return;}stamina.Tick();bool grounded=cc.isGrounded;if(grounded){doubleJumpUsed=false;if(velocity.y<0)velocity.y=-2;}Vector3 wish=Wish();HandleCrouchInput(grounded);HandleSlide(grounded);HandleDodge(wish);HandleJump(grounded,wish);HandleDownDash(grounded);if(dodgeTimer<0)Locomotion(grounded,wish);if(!grounded)velocity.y=Mathf.Max(velocity.y-settings.gravity*Time.deltaTime,-settings.maxFallSpeed);cc.Move(velocity*Time.deltaTime);input.ConsumeFrameButtons();}
+ void Update(){if(Time.timeScale==0){input.ConsumeFrameButtons();return;}stamina.Tick();bool grounded=cc.isGrounded;if(grounded){doubleJumpUsed=false;if(velocity.y<0)velocity.y=-2;}Vector3 wish=Wish();HandleCrouchInput(grounded);HandleSlide(grounded);HandleDodge(wish);HandleJump(grounded,wish);HandleDownDash(grounded);if(dodgeTimer<0)Locomotion(grounded,wish);if(!grounded)velocity.y=Mathf.Max(velocity.y-settings.gravity*Time.deltaTime,-settings.maxFallSpeed);cc.Move(velocity*Time.deltaTime);LogSpeed();input.ConsumeFrameButtons();}
  Vector3 Wish(){Vector3 f=cameraTransform?Vector3.ProjectOnPlane(cameraTransform.forward,Vector3.up).normalized:transform.forward,r=cameraTransform?Vector3.ProjectOnPlane(cameraTransform.right,Vector3.up).normalized:transform.right;return Vector3.ClampMagnitude(f*input.Move.y+r*input.Move.x,1);}
  float Smooth(float t){t=Mathf.Clamp01(t);return t*t*(3-2*t);}
  void Locomotion(bool grounded,Vector3 wish){Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);
   if(grounded){if(sliding){h=Vector3.MoveTowards(h,Vector3.zero,settings.slideFriction*Time.deltaTime);CurrentTechnique="Slide";}else{
    float stick=Mathf.Clamp01(input.Move.magnitude);
    bool hasInput=stick>.05f;
-   bool sprintIntent=!crouched&&stick>=settings.sprintStickThreshold;
+   bool sprintIntent=!crouched&&stick>=(1f/3f);
    if(sprintIntent)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,Time.deltaTime/Mathf.Max(.01f,settings.walkToSprintSeconds));
    else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
 
    float desiredSpeed=0f;
    if(crouched&&hasInput)desiredSpeed=settings.crouchSpeed;
-   else if(hasInput&&stick<settings.walkStickThreshold)desiredSpeed=settings.walkSpeed*(stick/settings.walkStickThreshold);
-   else if(hasInput)desiredSpeed=settings.jogSpeed;
-   if(sprintIntent)desiredSpeed=Mathf.Lerp(settings.jogSpeed,settings.sprintSpeed,Smooth(forwardRamp));
+   else if(hasInput&&stick<=(1f/3f))desiredSpeed=settings.walkSpeed*(stick/(1f/3f));
+   else if(hasInput)desiredSpeed=Mathf.Lerp(settings.walkSpeed,settings.sprintSpeed,Smooth(forwardRamp));
    // One radial speed budget: forward, backward, lateral and diagonal movement all use the same gait speed.
    // Stick direction only chooses heading, never a separate lateral speed cap.
 
@@ -35,12 +34,13 @@ public class PlayerMotor:MonoBehaviour{
     // the requested heading immediately while the gait system controls speed separately.
     float newSpeed=currentSpeed;
     if(desiredSpeed>currentSpeed)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
-    else if(stick<settings.walkStickThreshold)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
+    else if(stick<=(1f/3f))newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
     h=desiredDir*newSpeed;
    }
-   if(crouched)CurrentTechnique="Crouch";else if(sprintIntent&&forwardRamp>=.98f)CurrentTechnique="Sprint";else if(stick>=settings.walkStickThreshold)CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
+   if(crouched)CurrentTechnique="Crouch";else if(sprintIntent&&forwardRamp>=.98f)CurrentTechnique="Sprint";else if(stick>(1f/3f))CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
   else{float fr=input.Move.x!=0?0:settings.airFriction;h=Vector3.MoveTowards(h,Vector3.zero,fr*Time.deltaTime);h+=wish*settings.airAcceleration*settings.airControl*Time.deltaTime;h=Vector3.ClampMagnitude(h,settings.maxAirSpeed);}
   velocity=new Vector3(h.x,velocity.y,h.z);}
+ void LogSpeed(){if(Time.time<nextSpeedLog)return;nextSpeedLog=Time.time+.25f;Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);Debug.Log(string.Format("[Movement] {0} | Speed {1:0.00} m/s | X {2:0.00} | Z {3:0.00} | Stick {4:0.00} ({5:0.00},{6:0.00}) | Ramp {7:0.00}",CurrentTechnique,h.magnitude,h.x,h.z,StickMagnitude,MoveInput.x,MoveInput.y,forwardRamp));}
  void HandleCrouchInput(bool grounded){if(input.CrouchPressed&&grounded){crouchPressedAt=Time.time;crouchHeld=true;}if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold&&!sliding)ToggleCrouch();if(sliding)sliding=false;crouchHeld=false;}}
  void HandleSlide(bool grounded){if(!grounded||!input.CrouchHeld){if(sliding&&!input.CrouchHeld){sliding=false;if(crouched)SetCrouchGeometry();else SetStandingGeometry();}return;}if(Time.time-crouchPressedAt<settings.crouchHoldThreshold)return;float speed=Vector3.ProjectOnPlane(velocity,Vector3.up).magnitude;if(speed>=settings.slideEntrySpeed){if(!sliding){sliding=true;crouched=false;SetCrouchGeometry();}CurrentTechnique="Slide";}}
  void ToggleCrouch(){if(crouched){if(CanStand()){crouched=false;SetStandingGeometry();}}else{crouched=true;SetCrouchGeometry();}}
