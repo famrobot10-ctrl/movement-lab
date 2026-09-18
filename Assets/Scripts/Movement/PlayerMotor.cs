@@ -21,6 +21,8 @@ public class PlayerMotor:MonoBehaviour{
    else if(hasInput&&stick<settings.walkStickThreshold)desiredSpeed=settings.walkSpeed*(stick/settings.walkStickThreshold);
    else if(hasInput)desiredSpeed=settings.jogSpeed;
    if(sprintIntent)desiredSpeed=Mathf.Lerp(settings.jogSpeed,settings.sprintSpeed,Smooth(forwardRamp));
+   // One radial speed budget: forward, backward, lateral and diagonal movement all use the same gait speed.
+   // Stick direction only chooses heading, never a separate lateral speed cap.
 
    if(!hasInput){float blend=Mathf.Clamp01(h.magnitude/Mathf.Max(.01f,settings.brakingTransitionSpeed));float brake=Mathf.Lerp(settings.lowSpeedBraking,settings.highSpeedBraking,blend);h=Vector3.MoveTowards(h,Vector3.zero,brake*Time.deltaTime);}
    else{
