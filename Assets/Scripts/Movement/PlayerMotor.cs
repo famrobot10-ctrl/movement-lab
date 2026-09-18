@@ -41,8 +41,10 @@ public class PlayerMotor:MonoBehaviour{
     float turnRetention=turnAngle<=45f?1f:Mathf.Clamp01(1f-(turnAngle-45f)/135f);
     float retainedSpeed=currentSpeed*turnRetention;
     float newSpeed=retainedSpeed;
-    if(desiredSpeed>currentSpeed)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
-    else if(stick<=(1f/3f))newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
+    // Compare acceleration against the speed left AFTER the turn penalty. Comparing
+    // against pre-turn currentSpeed immediately restored sprint speed every frame.
+    if(desiredSpeed>retainedSpeed)newSpeed=Mathf.MoveTowards(retainedSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
+    else if(stick<=(1f/3f))newSpeed=Mathf.MoveTowards(retainedSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
     h=desiredDir*newSpeed;
    }
    if(crouched)CurrentTechnique="Crouch";else if(sprintIntent&&forwardRamp>=.98f)CurrentTechnique="Sprint";else if(stick>(1f/3f))CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
