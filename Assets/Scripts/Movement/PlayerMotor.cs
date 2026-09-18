@@ -2,7 +2,7 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController),typeof(PlayerInputState),typeof(StaminaSystem))]
 public class PlayerMotor:MonoBehaviour{
  public MovementSettings settings=new MovementSettings();public Transform cameraTransform;public Animator animator;public LayerMask worldMask=~0;
- CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity;float forwardRamp,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1,nextSpeedLog;bool wasGrounded;bool doubleJumpUsed,crouched,sliding,crouchHeld;
+ CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity,momentumHeading;float forwardRamp,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1,nextSpeedLog;bool wasGrounded;bool doubleJumpUsed,crouched,sliding,crouchHeld;
  public string CurrentTechnique{get;private set;}="Idle";public Vector3 Velocity=>velocity;
  public Vector2 MoveInput=>input!=null?input.Move:Vector2.zero;
  public float StickMagnitude=>input!=null?Mathf.Clamp01(input.Move.magnitude):0f;
@@ -28,18 +28,18 @@ public class PlayerMotor:MonoBehaviour{
    // One radial speed budget: forward, backward, lateral and diagonal movement all use the same gait speed.
    // Stick direction only chooses heading, never a separate lateral speed cap.
 
-   if(!hasInput){float blend=Mathf.Clamp01(h.magnitude/Mathf.Max(.01f,settings.brakingTransitionSpeed));float brake=Mathf.Lerp(settings.lowSpeedBraking,settings.highSpeedBraking,blend);h=Vector3.MoveTowards(h,Vector3.zero,brake*Time.deltaTime);}
+   if(!hasInput){if(h.magnitude<settings.walkSpeed+.05f)momentumHeading=Vector3.zero;float blend=Mathf.Clamp01(h.magnitude/Mathf.Max(.01f,settings.brakingTransitionSpeed));float brake=Mathf.Lerp(settings.lowSpeedBraking,settings.highSpeedBraking,blend);h=Vector3.MoveTowards(h,Vector3.zero,brake*Time.deltaTime);}
    else{
     Vector3 desiredDir=wish.normalized;
     float currentSpeed=h.magnitude;
-    Vector3 currentDir=currentSpeed>.05f?h.normalized:desiredDir;
-    float turnAngle=Vector3.Angle(currentDir,desiredDir);
-    // Momentum cone: 0-45 degrees retains speed. Beyond 45 degrees, usable movement
-    // speed falls linearly with turn angle until a full 180-degree reversal starts at 0.
-    // Existing physical momentum is reduced separately, so reversals can still carry the
-    // character briefly before acceleration takes over in the requested direction.
+    if(momentumHeading.sqrMagnitude<.01f||currentSpeed<=settings.walkSpeed+.05f)momentumHeading=desiredDir;
+    float turnAngle=Vector3.Angle(momentumHeading,desiredDir);
+    // Compare against the persistent heading that created the accumulated momentum.
+    // Small frame-by-frame turns can no longer rotate the cone around for free.
     float turnRetention=turnAngle<=45f?1f:Mathf.Clamp01(1f-(turnAngle-45f)/135f);
     float retainedSpeed=currentSpeed*turnRetention;
+    // Once speed has fallen back to base, the new heading becomes the next momentum origin.
+    if(retainedSpeed<=settings.walkSpeed+.05f)momentumHeading=desiredDir;
     float newSpeed=retainedSpeed;
     // Compare acceleration against the speed left AFTER the turn penalty. Comparing
     // against pre-turn currentSpeed immediately restored sprint speed every frame.
