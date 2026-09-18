@@ -36,9 +36,11 @@ public class PlayerMotor:MonoBehaviour{
     // Entering crouch while already moving immediately removes speed above the crouch cap.
     if(crouched){currentSpeed=Mathf.Min(currentSpeed,settings.crouchSpeed);h=currentSpeed>0f?desiredDir*currentSpeed:Vector3.zero;forwardRamp=0f;}
     if(momentumHeading.sqrMagnitude<.01f)momentumHeading=desiredDir;
-    float turnAngle=Vector3.Angle(momentumHeading,desiredDir);
-    // Momentum cone narrows continuously with speed: 360 degrees at rest, 45 degrees
-    // at configured sprintSpeed. No hard-coded 9 m/s dependency.
+    float cumulativeTurnAngle=Vector3.Angle(momentumHeading,desiredDir);
+    float immediateTurnAngle=currentSpeed>.05f?Vector3.Angle(h.normalized,desiredDir):0f;
+    // Use both the persistent momentum heading and the actual incoming velocity.
+    // This catches abrupt reversals while still preventing many tiny turns from bypassing momentum loss.
+    float turnAngle=Mathf.Max(cumulativeTurnAngle,immediateTurnAngle);
     float speedRatio=Mathf.Clamp01(currentSpeed/Mathf.Max(.01f,settings.sprintSpeed));
     float momentumRange=Mathf.Lerp(360f,45f,speedRatio);
     float turnRetention=turnAngle<=momentumRange?1f:Mathf.Clamp01(1f-(turnAngle-momentumRange)/Mathf.Max(.01f,180f-momentumRange));
