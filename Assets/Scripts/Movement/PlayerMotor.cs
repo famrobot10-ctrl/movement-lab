@@ -18,7 +18,7 @@ public class PlayerMotor:MonoBehaviour{
    float stick=Mathf.Clamp01(input.Move.magnitude);
    bool hasInput=stick>.05f;
    bool sprintIntent=!crouched&&stick>=(1f/3f);
-   if(sprintIntent)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,Time.deltaTime/Mathf.Max(.01f,settings.walkToSprintSeconds));
+   if(sprintIntent)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,(h.magnitude*Time.deltaTime)/Mathf.Max(.01f,settings.walkToSprintDistance));
    else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
 
    float desiredSpeed=0f;
@@ -32,6 +32,9 @@ public class PlayerMotor:MonoBehaviour{
    else{
     Vector3 desiredDir=wish.normalized;
     float currentSpeed=h.magnitude;
+    // Crouch is a hard locomotion cap, not merely a lower acceleration target.
+    // Entering crouch while already moving immediately removes speed above the crouch cap.
+    if(crouched){currentSpeed=Mathf.Min(currentSpeed,settings.crouchSpeed);h=currentSpeed>0f?desiredDir*currentSpeed:Vector3.zero;forwardRamp=0f;}
     if(momentumHeading.sqrMagnitude<.01f)momentumHeading=desiredDir;
     float turnAngle=Vector3.Angle(momentumHeading,desiredDir);
     // Momentum cone narrows continuously with speed: 360 degrees at rest, 45 degrees
