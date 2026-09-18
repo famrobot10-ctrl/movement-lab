@@ -31,19 +31,12 @@ public class PlayerMotor:MonoBehaviour{
    else{
     Vector3 desiredDir=wish.normalized;
     float currentSpeed=h.magnitude;
-    Vector3 currentDir=currentSpeed>.05f?h.normalized:desiredDir;
-    float alignment=Vector3.Dot(currentDir,desiredDir);
-    if(alignment<-.35f){h=Vector3.MoveTowards(h,desiredDir*desiredSpeed,settings.directionChangeAcceleration*Time.deltaTime);}
-    else{
-     // Steering rotates momentum. It never subtracts speed simply because the stick moved laterally.
-     float steerRate=crouched?settings.walkSteeringRate:(desiredSpeed<=settings.walkSpeed+.05f?settings.walkSteeringRate:(forwardRamp>.05f?settings.sprintSteeringRate:settings.jogSteeringRate));
-     Vector3 steered=Vector3.RotateTowards(currentDir,desiredDir,Mathf.Deg2Rad*steerRate*Time.deltaTime,0f).normalized;
-     float newSpeed=currentSpeed;
-     if(desiredSpeed>currentSpeed)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
-     else if(stick<settings.walkStickThreshold)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
-     // At jog/sprint input, ordinary steering never lowers accumulated speed.
-     h=steered*newSpeed;
-    }
+    // Characters strafe; they do not steer like vehicles. Active ground input selects
+    // the requested heading immediately while the gait system controls speed separately.
+    float newSpeed=currentSpeed;
+    if(desiredSpeed>currentSpeed)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
+    else if(stick<settings.walkStickThreshold)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
+    h=desiredDir*newSpeed;
    }
    if(crouched)CurrentTechnique="Crouch";else if(sprintIntent&&forwardRamp>=.98f)CurrentTechnique="Sprint";else if(stick>=settings.walkStickThreshold)CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
   else{float fr=input.Move.x!=0?0:settings.airFriction;h=Vector3.MoveTowards(h,Vector3.zero,fr*Time.deltaTime);h+=wish*settings.airAcceleration*settings.airControl*Time.deltaTime;h=Vector3.ClampMagnitude(h,settings.maxAirSpeed);}
