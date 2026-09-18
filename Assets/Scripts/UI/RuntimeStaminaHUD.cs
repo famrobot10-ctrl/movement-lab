@@ -23,11 +23,10 @@ public class RuntimeStaminaHUD : MonoBehaviour {
   float current=Mathf.Clamp(stamina.CurrentBars,0f,fullLayers.Length);
   for(int i=0;i<fullLayers.Length;i++){
    float amount=Mathf.Clamp01(current-i);
-   // One continuously filled layer avoids enable/disable races at 0.5 and 1.0 during regeneration.
+   emptyLayers[i].enabled=true;
+   halfLayers[i].enabled=false;
    fullLayers[i].enabled=true;
    fullLayers[i].fillAmount=amount;
-   halfLayers[i].enabled=false;
-   emptyLayers[i].enabled=true;
   }
  }
 }
