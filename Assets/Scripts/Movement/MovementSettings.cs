@@ -3,7 +3,7 @@ using UnityEngine;
 [Serializable]
 public class MovementSettings {
  [Header("Ground")]
- public float walkSpeed=3.2f,jogSpeed=5.5f,sprintSpeed=9f,walkToSprintSeconds=2.2f,rampResetSeconds=.35f,lateralSpeedLimit=5.5f;
+ public float walkSpeed=3.2f,jogSpeed=5.5f,sprintSpeed=9f,walkToSprintSeconds=2.2f,walkToSprintDistance=45f,rampResetSeconds=.35f,lateralSpeedLimit=5.5f;
  [Range(0,1)] public float walkStickThreshold=.72f;
  [Range(0,1)] public float sprintStickThreshold=.90f;
  public float groundAcceleration=46f,directionChangeAcceleration=68f;
