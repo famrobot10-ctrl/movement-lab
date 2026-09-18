@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 public class ThirdPersonCamera:MonoBehaviour{
- public Transform target; public Vector3 pivotOffset=new Vector3(0,1.05f,0); public float distance=2.7f,shoulderOffset=-.75f,sensitivity=150f,minPitch=-25f,maxPitch=70f,followSharpness=40f; float yaw,pitch=18f;
+ public Transform target; public Vector3 pivotOffset=new Vector3(0,.90f,0); public float distance=2.7f,shoulderOffset=-1.05f,sensitivity=150f,minPitch=-25f,maxPitch=70f,followSharpness=40f; float yaw,pitch=18f;
  void Start(){if(target)yaw=target.eulerAngles.y;Cursor.lockState=CursorLockMode.Locked;Cursor.visible=false;}
  void LateUpdate(){if(!target)return;float mx=0,my=0;
 #if ENABLE_INPUT_SYSTEM
