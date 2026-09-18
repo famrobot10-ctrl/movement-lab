@@ -10,29 +10,37 @@ public class PlayerMotor:MonoBehaviour{
  float Smooth(float t){t=Mathf.Clamp01(t);return t*t*(3-2*t);}
  void Locomotion(bool grounded,Vector3 wish){Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);
   if(grounded){if(sliding){h=Vector3.MoveTowards(h,Vector3.zero,settings.slideFriction*Time.deltaTime);CurrentTechnique="Slide";}else{
-   float inputAmount=Mathf.Clamp01(input.Move.magnitude);bool moving=!crouched&&inputAmount>.05f;
-   if(moving)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,Time.deltaTime/Mathf.Max(.01f,settings.walkToSprintSeconds));else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
-   float phase=Smooth(forwardRamp);float movementSpeed=crouched?settings.crouchSpeed:Mathf.Lerp(settings.walkSpeed,settings.sprintSpeed,phase);
-   // Steering changes direction without resetting accumulated movement speed.
-   Vector3 target=wish.sqrMagnitude>.001f?wish.normalized*(movementSpeed*inputAmount):Vector3.zero;
-   if(wish.sqrMagnitude<.01f){float blend=Mathf.Clamp01(h.magnitude/Mathf.Max(.01f,settings.brakingTransitionSpeed));float brake=Mathf.Lerp(settings.lowSpeedBraking,settings.highSpeedBraking,blend);h=Vector3.MoveTowards(h,Vector3.zero,brake*Time.deltaTime);}
+   float stick=Mathf.Clamp01(input.Move.magnitude);
+   bool hasInput=stick>.05f;
+   bool sprintIntent=!crouched&&stick>=settings.sprintStickThreshold;
+   if(sprintIntent)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,Time.deltaTime/Mathf.Max(.01f,settings.walkToSprintSeconds));
+   else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
+
+   float desiredSpeed=0f;
+   if(crouched&&hasInput)desiredSpeed=settings.crouchSpeed;
+   else if(hasInput&&stick<settings.walkStickThreshold)desiredSpeed=settings.walkSpeed*(stick/settings.walkStickThreshold);
+   else if(hasInput)desiredSpeed=settings.jogSpeed;
+   if(sprintIntent)desiredSpeed=Mathf.Lerp(settings.jogSpeed,settings.sprintSpeed,Smooth(forwardRamp));
+
+   if(!hasInput){float blend=Mathf.Clamp01(h.magnitude/Mathf.Max(.01f,settings.brakingTransitionSpeed));float brake=Mathf.Lerp(settings.lowSpeedBraking,settings.highSpeedBraking,blend);h=Vector3.MoveTowards(h,Vector3.zero,brake*Time.deltaTime);}
    else{
+    Vector3 desiredDir=wish.normalized;
     float currentSpeed=h.magnitude;
-    float targetSpeed=target.magnitude;
-    Vector3 desiredDir=targetSpeed>.001f?target/targetSpeed:(currentSpeed>.001f?h.normalized:Vector3.zero);
-    Vector3 currentDir=currentSpeed>.001f?h/currentSpeed:desiredDir;
+    Vector3 currentDir=currentSpeed>.05f?h.normalized:desiredDir;
     float alignment=Vector3.Dot(currentDir,desiredDir);
-    if(alignment>=0f&&currentSpeed>.05f){
-      float steerT=Mathf.Clamp01(settings.steeringAcceleration*Time.deltaTime/Mathf.Max(currentSpeed,.01f));
-      Vector3 steeredDir=Vector3.Slerp(currentDir,desiredDir,steerT).normalized;
-      float speedAccel=targetSpeed>currentSpeed?settings.groundAcceleration:settings.lowSpeedBraking;
-      float newSpeed=Mathf.MoveTowards(currentSpeed,targetSpeed,speedAccel*Time.deltaTime);
-      h=steeredDir*newSpeed;
-    }else{
-      h=Vector3.MoveTowards(h,target,settings.directionChangeAcceleration*Time.deltaTime);
+    if(alignment<-.35f){h=Vector3.MoveTowards(h,desiredDir*desiredSpeed,settings.directionChangeAcceleration*Time.deltaTime);}
+    else{
+     // Steering rotates momentum. It never subtracts speed simply because the stick moved laterally.
+     float steerRate=crouched?settings.walkSteeringRate:(desiredSpeed<=settings.walkSpeed+.05f?settings.walkSteeringRate:(forwardRamp>.05f?settings.sprintSteeringRate:settings.jogSteeringRate));
+     Vector3 steered=Vector3.RotateTowards(currentDir,desiredDir,Mathf.Deg2Rad*steerRate*Time.deltaTime,0f).normalized;
+     float newSpeed=currentSpeed;
+     if(desiredSpeed>currentSpeed)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
+     else if(stick<settings.walkStickThreshold)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
+     // At jog/sprint input, ordinary steering never lowers accumulated speed.
+     h=steered*newSpeed;
     }
    }
-   if(crouched)CurrentTechnique="Crouch";else if(forwardRamp>=settings.sprintPhaseStart)CurrentTechnique="Sprint";else if(forwardRamp>=settings.jogPhaseStart)CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
+   if(crouched)CurrentTechnique="Crouch";else if(sprintIntent&&forwardRamp>=.98f)CurrentTechnique="Sprint";else if(stick>=settings.walkStickThreshold)CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
   else{float fr=input.Move.x!=0?0:settings.airFriction;h=Vector3.MoveTowards(h,Vector3.zero,fr*Time.deltaTime);h+=wish*settings.airAcceleration*settings.airControl*Time.deltaTime;h=Vector3.ClampMagnitude(h,settings.maxAirSpeed);}
   velocity=new Vector3(h.x,velocity.y,h.z);}
  void HandleCrouchInput(bool grounded){if(input.CrouchPressed&&grounded){crouchPressedAt=Time.time;crouchHeld=true;}if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold&&!sliding)ToggleCrouch();if(sliding)sliding=false;crouchHeld=false;}}
