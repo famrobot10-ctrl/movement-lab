@@ -32,8 +32,11 @@ public class PlayerMotor:MonoBehaviour{
    else{
     Vector3 desiredDir=wish.normalized;
     float currentSpeed=h.magnitude;
-    // Characters strafe; they do not steer like vehicles. Active ground input selects
-    // the requested heading immediately while the gait system controls speed separately.
+    Vector3 currentDir=currentSpeed>.05f?h.normalized:desiredDir;
+    float turnAngle=Vector3.Angle(currentDir,desiredDir);
+    // Momentum cone: retain accumulated speed only when the requested heading stays
+    // within 45 degrees of current travel. Sharper turns reset to base move speed.
+    if(turnAngle>45f&&currentSpeed>settings.walkSpeed)currentSpeed=settings.walkSpeed;
     float newSpeed=currentSpeed;
     if(desiredSpeed>currentSpeed)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
     else if(stick<=(1f/3f))newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
