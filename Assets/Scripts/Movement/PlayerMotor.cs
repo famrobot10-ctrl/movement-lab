@@ -32,19 +32,21 @@ public class PlayerMotor:MonoBehaviour{
    else{
     Vector3 desiredDir=wish.normalized;
     float currentSpeed=h.magnitude;
-    if(momentumHeading.sqrMagnitude<.01f||currentSpeed<=settings.walkSpeed+.05f)momentumHeading=desiredDir;
+    if(momentumHeading.sqrMagnitude<.01f)momentumHeading=desiredDir;
     float turnAngle=Vector3.Angle(momentumHeading,desiredDir);
-    // The persistent heading defines how much of the accumulated ABOVE-BASE momentum
-    // is still valid. Direction itself remains perfectly analog and follows the stick.
-    float turnRetention=turnAngle<=45f?1f:Mathf.Clamp01(1f-(turnAngle-45f)/135f);
-    float bonusSpeed=Mathf.Max(0f,currentSpeed-settings.walkSpeed);
-    float retainedSpeed=Mathf.Min(currentSpeed,settings.walkSpeed+bonusSpeed*turnRetention);
-    // Do not snap the momentum origin while tracing an analog arc. It resets only after
-    // accumulated bonus speed is gone, producing a smooth speed gradient instead of steps.
-    if(bonusSpeed<=.05f)momentumHeading=desiredDir;
+    // Momentum cone narrows continuously with speed: 360 degrees at rest, 45 degrees
+    // at configured sprintSpeed. No hard-coded 9 m/s dependency.
+    float speedRatio=Mathf.Clamp01(currentSpeed/Mathf.Max(.01f,settings.sprintSpeed));
+    float momentumRange=Mathf.Lerp(360f,45f,speedRatio);
+    float turnRetention=turnAngle<=momentumRange?1f:Mathf.Clamp01(1f-(turnAngle-momentumRange)/Mathf.Max(.01f,180f-momentumRange));
+    float retainedSpeed=currentSpeed*turnRetention;
     float newSpeed=retainedSpeed;
     if(desiredSpeed>retainedSpeed)newSpeed=Mathf.MoveTowards(retainedSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
     else if(stick<=(1f/3f))newSpeed=Mathf.MoveTowards(retainedSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
+    // Once the turn penalty has been paid, the requested direction becomes the new
+    // momentum heading so the player can immediately build speed around/after a corner.
+    if(turnAngle>momentumRange)momentumHeading=desiredDir;
+    else if(currentSpeed<=settings.walkSpeed+.05f)momentumHeading=desiredDir;
     h=desiredDir*newSpeed;
    }
    if(crouched)CurrentTechnique="Crouch";else if(sprintIntent&&forwardRamp>=.98f)CurrentTechnique="Sprint";else if(stick>(1f/3f))CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
