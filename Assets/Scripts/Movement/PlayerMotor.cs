@@ -22,7 +22,7 @@ public class PlayerMotor:MonoBehaviour{
    else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
 
    float desiredSpeed=0f;
-   if(crouched&&hasInput)desiredSpeed=settings.crouchSpeed;
+   if(crouched&&hasInput)desiredSpeed=settings.walkSpeed*.60f;
    else if(hasInput&&stick<=(1f/3f))desiredSpeed=settings.walkSpeed*(stick/(1f/3f));
    else if(hasInput)desiredSpeed=Mathf.Lerp(settings.walkSpeed,settings.sprintSpeed,Smooth(forwardRamp));
    // One radial speed budget: forward, backward, lateral and diagonal movement all use the same gait speed.
@@ -40,15 +40,18 @@ public class PlayerMotor:MonoBehaviour{
     h=desiredDir*newSpeed;
    }
    if(crouched)CurrentTechnique="Crouch";else if(sprintIntent&&forwardRamp>=.98f)CurrentTechnique="Sprint";else if(stick>(1f/3f))CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
-  else{float fr=input.Move.x!=0?0:settings.airFriction;h=Vector3.MoveTowards(h,Vector3.zero,fr*Time.deltaTime);h+=wish*settings.airAcceleration*settings.airControl*Time.deltaTime;h=Vector3.ClampMagnitude(h,settings.maxAirSpeed);}
+  else{float fr=input.Move.x!=0?0:settings.airFriction;h=Vector3.MoveTowards(h,Vector3.zero,fr*Time.deltaTime);
+   // Air control changes direction without creating free horizontal speed from an ordinary jump.
+   if(wish.sqrMagnitude>.001f){float airSpeed=Mathf.Min(h.magnitude,settings.sprintSpeed);Vector3 target=wish.normalized*airSpeed;h=Vector3.MoveTowards(h,target,settings.airAcceleration*settings.airControl*Time.deltaTime);}
+   h=Vector3.ClampMagnitude(h,settings.maxAirSpeed);}
   velocity=new Vector3(h.x,velocity.y,h.z);}
  void LogSpeed(){if(Time.time<nextSpeedLog)return;nextSpeedLog=Time.time+.25f;Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);Debug.Log(string.Format("[Movement] {0} | Speed {1:0.00} m/s | X {2:0.00} | Z {3:0.00} | Stick {4:0.00} ({5:0.00},{6:0.00}) | Ramp {7:0.00}",CurrentTechnique,h.magnitude,h.x,h.z,StickMagnitude,MoveInput.x,MoveInput.y,forwardRamp));}
  void HandleCrouchInput(bool grounded){if(input.CrouchPressed&&grounded){crouchPressedAt=Time.time;crouchHeld=true;}if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold&&!sliding)ToggleCrouch();if(sliding)sliding=false;crouchHeld=false;}}
  void HandleSlide(bool grounded){if(!grounded||!input.CrouchHeld){if(sliding&&!input.CrouchHeld){sliding=false;if(crouched)SetCrouchGeometry();else SetStandingGeometry();}return;}if(Time.time-crouchPressedAt<settings.crouchHoldThreshold)return;float speed=Vector3.ProjectOnPlane(velocity,Vector3.up).magnitude;if(speed>=settings.slideEntrySpeed){if(!sliding){sliding=true;crouched=false;SetCrouchGeometry();}CurrentTechnique="Slide";}}
  void ToggleCrouch(){if(crouched){if(CanStand()){crouched=false;SetStandingGeometry();}}else{crouched=true;SetCrouchGeometry();}}
- void SetStandingGeometry(){cc.height=2.33f;cc.radius=.68f;cc.stepOffset=.30f;cc.skinWidth=.08f;cc.minMoveDistance=.001f;cc.slopeLimit=45;cc.center=Vector3.zero;SetVisual(false);}
- void SetCrouchGeometry(){cc.height=1.165f;cc.radius=.55f;cc.center=new Vector3(0,-.5825f,0);SetVisual(true);}
- void SetVisual(bool on){Transform v=transform.Find("Player Visual");if(v){v.localScale=on?new Vector3(1.12f,.58f,1.12f):Vector3.one;v.localPosition=on?new Vector3(0,-.49f,0):Vector3.zero;}}
+ void SetStandingGeometry(){cc.height=1.7018f;cc.radius=.4967f;cc.stepOffset=.30f;cc.skinWidth=.08f;cc.minMoveDistance=.001f;cc.slopeLimit=45;cc.center=Vector3.zero;SetVisual(false);}
+ void SetCrouchGeometry(){cc.height=.8509f;cc.radius=.4016f;cc.center=new Vector3(0,-.42545f,0);SetVisual(true);}
+ void SetVisual(bool on){Transform v=transform.Find("Player Visual");if(v){v.localScale=on?new Vector3(.818f,.422f,.818f):new Vector3(.7304f,.7304f,.7304f);v.localPosition=on?new Vector3(0,-.358f,0):Vector3.zero;}}
  bool CanStand(){Vector3 origin=transform.position+Vector3.up*(cc.height-.05f);return !Physics.SphereCast(origin,cc.radius*.9f,Vector3.up,out _,.9f,worldMask,QueryTriggerInteraction.Ignore);}
  void HandleJump(bool grounded,Vector3 wish){if(!input.JumpPressed)return;if(!grounded&&TryWallBounce())return;if(grounded){velocity.y=settings.jumpVelocity;CurrentTechnique="Jump";}else if(!doubleJumpUsed&&stamina.Spend(1)){doubleJumpUsed=true;velocity.y=settings.doubleJumpVelocity;CurrentTechnique="Double-Jump";}}
  bool TryWallBounce(){if(Time.time-lastWallBounce<settings.wallBounceLockout)return false;Vector3 origin=transform.position+Vector3.up*.9f;Vector3[] ds={transform.forward,-transform.forward,transform.right,-transform.right};foreach(Vector3 d in ds)if(Physics.SphereCast(origin,.32f,d,out RaycastHit hit,settings.wallDetectionDistance,worldMask,QueryTriggerInteraction.Ignore)&&Vector3.Dot(hit.normal,Vector3.up)<.35f&&stamina.Spend(.5f)){Vector3 tangent=Vector3.ProjectOnPlane(Vector3.ProjectOnPlane(velocity,Vector3.up),hit.normal);Vector3 carry=(tangent.sqrMagnitude>.01f?tangent.normalized:Vector3.ProjectOnPlane(transform.forward,hit.normal).normalized)*settings.wallBounceForwardVelocity;Vector3 outv=hit.normal*settings.wallBounceOutwardVelocity+carry;velocity=new Vector3(outv.x,settings.wallBounceVerticalVelocity,outv.z);lastWallBounce=Time.time;CurrentTechnique="Wall-Bounce";return true;}return false;}
