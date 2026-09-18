@@ -19,11 +19,13 @@ public class RuntimeStaminaHUD : MonoBehaviour {
  }
  void Update(){
   if(stamina==null||fullLayers==null)return;
+  float current=Mathf.Clamp(stamina.CurrentBars,0f,fullLayers.Length);
   for(int i=0;i<fullLayers.Length;i++){
-   float amount=Mathf.Clamp01(stamina.CurrentBars-i);
+   float amount=Mathf.Clamp01(current-i);
    fullLayers[i].fillAmount=amount;
    fullLayers[i].enabled=amount>.001f;
-   halfLayers[i].enabled=amount>=.499f&&amount<.999f;
+   // Background is always visible. A partial bar therefore has an obvious dark missing section.
+   halfLayers[i].enabled=false;
   }
  }
 }
