@@ -18,7 +18,14 @@ public class PlayerMotor:MonoBehaviour{
    float stick=Mathf.Clamp01(input.Move.magnitude);
    bool hasInput=stick>.05f;
    bool sprintIntent=!crouched&&stick>=(1f/3f);
-   if(sprintIntent)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,(h.magnitude*Time.deltaTime)/Mathf.Max(.01f,settings.walkToSprintDistance));
+   if(sprintIntent){
+    // Distance-based ease-out acceleration: strong acceleration near base speed, then
+    // progressively flatter as sprintSpeed approaches. The integral still completes
+    // the sprint ramp over approximately walkToSprintDistance meters.
+    float speed01=Mathf.InverseLerp(settings.walkSpeed,settings.sprintSpeed,h.magnitude);
+    float slopeMultiplier=Mathf.Lerp(1.65f,.55f,Smooth(speed01));
+    forwardRamp=Mathf.MoveTowards(forwardRamp,1f,(h.magnitude*Time.deltaTime/Mathf.Max(.01f,settings.walkToSprintDistance))*slopeMultiplier);
+   }
    else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
 
    float desiredSpeed=0f;
