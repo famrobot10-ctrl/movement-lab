@@ -11,7 +11,7 @@ public class MovementSettings {
  public float lowSpeedBraking=85f,highSpeedBraking=16f,brakingTransitionSpeed=6.5f;
  [Range(.25f,4f)] public float accelerationCurvePower=.65f;
  [Header("Crouch")]
- public float crouchSpeed=2.75f,crouchHoldThreshold=.20f; [Range(0,1)] public float crouchFootstepVolume=.35f;
+ public float crouchSpeed=1.92f,crouchHoldThreshold=.20f; [Range(0,1)] public float crouchFootstepVolume=.35f;
  [Header("Slide")]
  public float slideEntrySpeed=7f,slideSpeed=8f,slideFriction=5f,slopeSlideSpeed=9f,slopeAcceleration=10f,minimumSlopeSlideAngle=10f;
  [Header("Jump")]
