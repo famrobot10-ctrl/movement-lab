@@ -12,9 +12,9 @@ public class RuntimeStaminaHUD : MonoBehaviour {
   var layout=panelGO.AddComponent<HorizontalLayoutGroup>();layout.spacing=10;layout.childForceExpandWidth=true;layout.childForceExpandHeight=true;
   int count=stamina!=null?stamina.settings.staminaBars:3;fullLayers=new Image[count];halfLayers=new Image[count];
   for(int i=0;i<count;i++){
-   var slot=new GameObject("Stamina "+(i+1));slot.transform.SetParent(panelGO.transform,false);var bg=slot.AddComponent<Image>();bg.color=new Color(1,1,1,.14f);
-   var halfGO=new GameObject("Half");halfGO.transform.SetParent(slot.transform,false);var halfRT=halfGO.AddComponent<RectTransform>();halfRT.anchorMin=Vector2.zero;halfRT.anchorMax=new Vector2(.5f,1);halfRT.offsetMin=halfRT.offsetMax=Vector2.zero;var half=halfGO.AddComponent<Image>();half.color=new Color(1,1,1,.55f);halfLayers[i]=half;
-   var fullGO=new GameObject("Full");fullGO.transform.SetParent(slot.transform,false);var fullRT=fullGO.AddComponent<RectTransform>();fullRT.anchorMin=Vector2.zero;fullRT.anchorMax=Vector2.one;fullRT.offsetMin=fullRT.offsetMax=Vector2.zero;var full=fullGO.AddComponent<Image>();full.color=new Color(1,1,1,.9f);full.type=Image.Type.Filled;full.fillMethod=Image.FillMethod.Horizontal;full.fillOrigin=0;fullLayers[i]=full;
+   var slot=new GameObject("Stamina "+(i+1));slot.transform.SetParent(panelGO.transform,false);var bg=slot.AddComponent<Image>();bg.color=new Color(.04f,.04f,.04f,.82f);
+   var halfGO=new GameObject("Half");halfGO.transform.SetParent(slot.transform,false);var halfRT=halfGO.AddComponent<RectTransform>();halfRT.anchorMin=Vector2.zero;halfRT.anchorMax=new Vector2(.5f,1);halfRT.offsetMin=halfRT.offsetMax=Vector2.zero;var half=halfGO.AddComponent<Image>();half.color=new Color(.15f,.8f,1f,.9f);halfLayers[i]=half;
+   var fullGO=new GameObject("Full");fullGO.transform.SetParent(slot.transform,false);var fullRT=fullGO.AddComponent<RectTransform>();fullRT.anchorMin=Vector2.zero;fullRT.anchorMax=Vector2.one;fullRT.offsetMin=fullRT.offsetMax=Vector2.zero;var full=fullGO.AddComponent<Image>();full.color=new Color(.15f,.8f,1f,1f);full.type=Image.Type.Filled;full.fillMethod=Image.FillMethod.Horizontal;full.fillOrigin=0;fullLayers[i]=full;
   }
  }
  void Update(){
