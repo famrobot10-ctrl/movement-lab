@@ -34,10 +34,13 @@ public class PlayerMotor:MonoBehaviour{
     float currentSpeed=h.magnitude;
     Vector3 currentDir=currentSpeed>.05f?h.normalized:desiredDir;
     float turnAngle=Vector3.Angle(currentDir,desiredDir);
-    // Momentum cone: retain accumulated speed only when the requested heading stays
-    // within 45 degrees of current travel. Sharper turns reset to base move speed.
-    if(turnAngle>45f&&currentSpeed>settings.walkSpeed)currentSpeed=settings.walkSpeed;
-    float newSpeed=currentSpeed;
+    // Momentum cone: 0-45 degrees retains speed. Beyond 45 degrees, usable movement
+    // speed falls linearly with turn angle until a full 180-degree reversal starts at 0.
+    // Existing physical momentum is reduced separately, so reversals can still carry the
+    // character briefly before acceleration takes over in the requested direction.
+    float turnRetention=turnAngle<=45f?1f:Mathf.Clamp01(1f-(turnAngle-45f)/135f);
+    float retainedSpeed=currentSpeed*turnRetention;
+    float newSpeed=retainedSpeed;
     if(desiredSpeed>currentSpeed)newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
     else if(stick<=(1f/3f))newSpeed=Mathf.MoveTowards(currentSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
     h=desiredDir*newSpeed;
