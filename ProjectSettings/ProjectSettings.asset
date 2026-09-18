@@ -1,0 +1,9 @@
+%YAML 1.1
+--- !u!129 &1
+PlayerSettings:
+  m_ObjectHideFlags: 0
+  productName: Movement Lab Prototype
+  companyName: Movement Lab
+  defaultScreenWidth: 1920
+  defaultScreenHeight: 1080
+  runInBackground: 1
