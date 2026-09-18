@@ -34,15 +34,15 @@ public class PlayerMotor:MonoBehaviour{
     float currentSpeed=h.magnitude;
     if(momentumHeading.sqrMagnitude<.01f||currentSpeed<=settings.walkSpeed+.05f)momentumHeading=desiredDir;
     float turnAngle=Vector3.Angle(momentumHeading,desiredDir);
-    // Compare against the persistent heading that created the accumulated momentum.
-    // Small frame-by-frame turns can no longer rotate the cone around for free.
+    // The persistent heading defines how much of the accumulated ABOVE-BASE momentum
+    // is still valid. Direction itself remains perfectly analog and follows the stick.
     float turnRetention=turnAngle<=45f?1f:Mathf.Clamp01(1f-(turnAngle-45f)/135f);
-    float retainedSpeed=currentSpeed*turnRetention;
-    // Once speed has fallen back to base, the new heading becomes the next momentum origin.
-    if(retainedSpeed<=settings.walkSpeed+.05f)momentumHeading=desiredDir;
+    float bonusSpeed=Mathf.Max(0f,currentSpeed-settings.walkSpeed);
+    float retainedSpeed=Mathf.Min(currentSpeed,settings.walkSpeed+bonusSpeed*turnRetention);
+    // Do not snap the momentum origin while tracing an analog arc. It resets only after
+    // accumulated bonus speed is gone, producing a smooth speed gradient instead of steps.
+    if(bonusSpeed<=.05f)momentumHeading=desiredDir;
     float newSpeed=retainedSpeed;
-    // Compare acceleration against the speed left AFTER the turn penalty. Comparing
-    // against pre-turn currentSpeed immediately restored sprint speed every frame.
     if(desiredSpeed>retainedSpeed)newSpeed=Mathf.MoveTowards(retainedSpeed,desiredSpeed,settings.groundAcceleration*Time.deltaTime);
     else if(stick<=(1f/3f))newSpeed=Mathf.MoveTowards(retainedSpeed,desiredSpeed,settings.lowSpeedBraking*Time.deltaTime);
     h=desiredDir*newSpeed;
