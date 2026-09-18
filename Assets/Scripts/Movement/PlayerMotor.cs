@@ -10,10 +10,11 @@ public class PlayerMotor:MonoBehaviour{
  float Smooth(float t){t=Mathf.Clamp01(t);return t*t*(3-2*t);}
  void Locomotion(bool grounded,Vector3 wish){Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);
   if(grounded){if(sliding){h=Vector3.MoveTowards(h,Vector3.zero,settings.slideFriction*Time.deltaTime);CurrentTechnique="Slide";}else{
-   float inputAmount=Mathf.Clamp01(input.Move.magnitude);bool forwardIntent=!crouched&&input.Move.y>.15f;
-   if(forwardIntent)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,Time.deltaTime/Mathf.Max(.01f,settings.walkToSprintSeconds));else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
-   float phase=Smooth(forwardRamp);float forwardCap=crouched?settings.crouchSpeed:Mathf.Lerp(settings.walkSpeed,settings.sprintSpeed,phase);
-   float lateralCap=crouched?settings.crouchSpeed:settings.lateralSpeedLimit;Vector3 localWish=transform.InverseTransformDirection(wish);Vector3 localTarget=new Vector3(localWish.x*lateralCap,0,localWish.z*forwardCap)*inputAmount;Vector3 target=transform.TransformDirection(localTarget);
+   float inputAmount=Mathf.Clamp01(input.Move.magnitude);bool moving=!crouched&&inputAmount>.05f;
+   if(moving)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,Time.deltaTime/Mathf.Max(.01f,settings.walkToSprintSeconds));else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
+   float phase=Smooth(forwardRamp);float movementSpeed=crouched?settings.crouchSpeed:Mathf.Lerp(settings.walkSpeed,settings.sprintSpeed,phase);
+   // Steering changes direction without resetting accumulated movement speed.
+   Vector3 target=wish.sqrMagnitude>.001f?wish.normalized*(movementSpeed*inputAmount):Vector3.zero;
    if(wish.sqrMagnitude<.01f){float blend=Mathf.Clamp01(h.magnitude/Mathf.Max(.01f,settings.brakingTransitionSpeed));float brake=Mathf.Lerp(settings.lowSpeedBraking,settings.highSpeedBraking,blend);h=Vector3.MoveTowards(h,Vector3.zero,brake*Time.deltaTime);}
    else{
     float currentSpeed=h.magnitude;
