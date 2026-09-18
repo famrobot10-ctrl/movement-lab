@@ -1,0 +1,2 @@
+using UnityEngine;using UnityEngine.UI;
+public class MovementTelemetry:MonoBehaviour{public PlayerMotor motor;public StaminaSystem stamina;public Text text;public bool visible=true;void LateUpdate(){if(!text)return;text.gameObject.SetActive(visible);if(!visible||!motor)return;Vector3 v=motor.Velocity;text.text=string.Format("{0}\nSpeed {1:0.0} m/s\nVertical {2:0.0}\nStamina {3:0.0}",motor.CurrentTechnique,new Vector2(v.x,v.z).magnitude,v.y,stamina?stamina.CurrentBars:0);}}
