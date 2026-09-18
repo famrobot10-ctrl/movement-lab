@@ -4,6 +4,9 @@ public class PlayerMotor:MonoBehaviour{
  public MovementSettings settings=new MovementSettings();public Transform cameraTransform;public Animator animator;public LayerMask worldMask=~0;
  CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity;float forwardRamp,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1;bool doubleJumpUsed,crouched,sliding,crouchHeld;
  public string CurrentTechnique{get;private set;}="Idle";public Vector3 Velocity=>velocity;
+ public Vector2 MoveInput=>input!=null?input.Move:Vector2.zero;
+ public float StickMagnitude=>input!=null?Mathf.Clamp01(input.Move.magnitude):0f;
+ public float HorizontalSpeed=>new Vector2(velocity.x,velocity.z).magnitude;
  void Awake(){cc=GetComponent<CharacterController>();input=GetComponent<PlayerInputState>();stamina=GetComponent<StaminaSystem>();stamina.Initialize(settings);SetStandingGeometry();}
  void Update(){if(Time.timeScale==0){input.ConsumeFrameButtons();return;}stamina.Tick();bool grounded=cc.isGrounded;if(grounded){doubleJumpUsed=false;if(velocity.y<0)velocity.y=-2;}Vector3 wish=Wish();HandleCrouchInput(grounded);HandleSlide(grounded);HandleDodge(wish);HandleJump(grounded,wish);HandleDownDash(grounded);if(dodgeTimer<0)Locomotion(grounded,wish);if(!grounded)velocity.y=Mathf.Max(velocity.y-settings.gravity*Time.deltaTime,-settings.maxFallSpeed);cc.Move(velocity*Time.deltaTime);input.ConsumeFrameButtons();}
  Vector3 Wish(){Vector3 f=cameraTransform?Vector3.ProjectOnPlane(cameraTransform.forward,Vector3.up).normalized:transform.forward,r=cameraTransform?Vector3.ProjectOnPlane(cameraTransform.right,Vector3.up).normalized:transform.right;return Vector3.ClampMagnitude(f*input.Move.y+r*input.Move.x,1);}
