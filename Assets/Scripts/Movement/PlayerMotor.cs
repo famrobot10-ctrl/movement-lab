@@ -2,7 +2,7 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController),typeof(PlayerInputState),typeof(StaminaSystem))]
 public class PlayerMotor:MonoBehaviour{
  public MovementSettings settings=new MovementSettings();public Transform cameraTransform;public Animator animator;public LayerMask worldMask=~0;
- CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity;float sprintRamp,maxMoveSince=-1,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1;bool doubleJumpUsed,crouched,sliding,crouchHeld;
+ CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity;float forwardRamp,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1;bool doubleJumpUsed,crouched,sliding,crouchHeld;
  public string CurrentTechnique{get;private set;}="Idle";public Vector3 Velocity=>velocity;
  void Awake(){cc=GetComponent<CharacterController>();input=GetComponent<PlayerInputState>();stamina=GetComponent<StaminaSystem>();stamina.Initialize(settings);SetStandingGeometry();}
  void Update(){if(Time.timeScale==0){input.ConsumeFrameButtons();return;}stamina.Tick();bool grounded=cc.isGrounded;if(grounded){doubleJumpUsed=false;if(velocity.y<0)velocity.y=-2;}Vector3 wish=Wish();HandleCrouchInput(grounded);HandleSlide(grounded);HandleDodge(wish);HandleJump(grounded,wish);HandleDownDash(grounded);if(dodgeTimer<0)Locomotion(grounded,wish);if(!grounded)velocity.y=Mathf.Max(velocity.y-settings.gravity*Time.deltaTime,-settings.maxFallSpeed);cc.Move(velocity*Time.deltaTime);input.ConsumeFrameButtons();}
@@ -10,12 +10,13 @@ public class PlayerMotor:MonoBehaviour{
  float Smooth(float t){t=Mathf.Clamp01(t);return t*t*(3-2*t);}
  void Locomotion(bool grounded,Vector3 wish){Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);
   if(grounded){if(sliding){h=Vector3.MoveTowards(h,Vector3.zero,settings.slideFriction*Time.deltaTime);CurrentTechnique="Slide";}else{
-   float cap=crouched?settings.crouchSpeed:settings.moveSpeed;
-   if(!crouched&&h.magnitude>=settings.moveSpeed*.98f&&input.Move.y>.7f){if(maxMoveSince<0)maxMoveSince=Time.time;if(Time.time-maxMoveSince>=settings.sprintActivationDelay)sprintRamp=Mathf.MoveTowards(sprintRamp,1,Time.deltaTime/Mathf.Max(.01f,settings.sprintRampSeconds));}else{maxMoveSince=-1;sprintRamp=0;}
-   float forwardCap=crouched?cap:Mathf.Lerp(settings.moveSpeed,settings.sprintSpeed,Smooth(sprintRamp));Vector3 local=transform.InverseTransformDirection(wish*cap);local.x=Mathf.Clamp(local.x,-(crouched?cap:settings.lateralSpeedLimit),crouched?cap:settings.lateralSpeedLimit);if(local.z>0)local.z=Mathf.Min(local.z,forwardCap);Vector3 target=transform.TransformDirection(local);
+   float inputAmount=Mathf.Clamp01(input.Move.magnitude);bool forwardIntent=!crouched&&input.Move.y>.15f;
+   if(forwardIntent)forwardRamp=Mathf.MoveTowards(forwardRamp,1f,Time.deltaTime/Mathf.Max(.01f,settings.walkToSprintSeconds));else forwardRamp=Mathf.MoveTowards(forwardRamp,0f,Time.deltaTime/Mathf.Max(.01f,settings.rampResetSeconds));
+   float phase=Smooth(forwardRamp);float forwardCap=crouched?settings.crouchSpeed:Mathf.Lerp(settings.walkSpeed,settings.sprintSpeed,phase);
+   float lateralCap=crouched?settings.crouchSpeed:settings.lateralSpeedLimit;Vector3 localWish=transform.InverseTransformDirection(wish);Vector3 localTarget=new Vector3(localWish.x*lateralCap,0,localWish.z*forwardCap)*inputAmount;Vector3 target=transform.TransformDirection(localTarget);
    if(wish.sqrMagnitude<.01f){float blend=Mathf.Clamp01(h.magnitude/Mathf.Max(.01f,settings.brakingTransitionSpeed));float brake=Mathf.Lerp(settings.lowSpeedBraking,settings.highSpeedBraking,blend);h=Vector3.MoveTowards(h,Vector3.zero,brake*Time.deltaTime);}
-   else{float alignment=h.sqrMagnitude>.001f?Vector3.Dot(h.normalized,target.normalized):1;float accel=alignment<.5f?settings.directionChangeAcceleration:settings.groundAcceleration;float speed01=Mathf.Clamp01(h.magnitude/Mathf.Max(.01f,target.magnitude));float boost=Mathf.Pow(Mathf.Max(.001f,1-speed01),settings.accelerationCurvePower);h=Vector3.MoveTowards(h,target,accel*(.55f+1.15f*boost)*Time.deltaTime);}
-   CurrentTechnique=crouched?"Crouch":sprintRamp>.05f?"Sprint":"Move";}}
+   else{float alignment=h.sqrMagnitude>.001f?Vector3.Dot(h.normalized,target.normalized):1;float accel=alignment<.5f?settings.directionChangeAcceleration:settings.groundAcceleration;h=Vector3.MoveTowards(h,target,accel*Time.deltaTime);}
+   if(crouched)CurrentTechnique="Crouch";else if(forwardRamp>=settings.sprintPhaseStart)CurrentTechnique="Sprint";else if(forwardRamp>=settings.jogPhaseStart)CurrentTechnique="Jog";else CurrentTechnique="Walk";}}
   else{float fr=input.Move.x!=0?0:settings.airFriction;h=Vector3.MoveTowards(h,Vector3.zero,fr*Time.deltaTime);h+=wish*settings.airAcceleration*settings.airControl*Time.deltaTime;h=Vector3.ClampMagnitude(h,settings.maxAirSpeed);}
   velocity=new Vector3(h.x,velocity.y,h.z);}
  void HandleCrouchInput(bool grounded){if(input.CrouchPressed&&grounded){crouchPressedAt=Time.time;crouchHeld=true;}if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold&&!sliding)ToggleCrouch();if(sliding)sliding=false;crouchHeld=false;}}
