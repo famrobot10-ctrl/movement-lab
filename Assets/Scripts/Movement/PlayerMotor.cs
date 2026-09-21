@@ -88,8 +88,15 @@ public class PlayerMotor:MonoBehaviour{
  }
  void UpdateMantle(){
   mantleTimer+=Time.deltaTime;if(input.CrouchHeld)mantleSlideQueued=true;
-  float t=Mathf.Clamp01(mantleTimer/Mathf.Max(.01f,settings.mantleDuration));float eased=Smooth(t);
-  Vector3 next=Vector3.Lerp(mantleStart,mantleEnd,eased);cc.Move(next-transform.position);
+  float t=Mathf.Clamp01(mantleTimer/Mathf.Max(.01f,settings.mantleDuration));
+  // Quintic smootherstep gives zero velocity and acceleration at both ends,
+  // removing the snap at mantle start/finish.
+  float eased=t*t*t*(t*(t*6f-15f)+10f);
+  // Add a small vertical arc so the body rises over the lip instead of moving
+  // through one straight diagonal line.
+  Vector3 next=Vector3.Lerp(mantleStart,mantleEnd,eased);
+  next.y+=Mathf.Sin(eased*Mathf.PI)*.10f;
+  cc.Move(next-transform.position);
   if(t<1)return;mantling=false;
   if(mantleSlideQueued){
    Vector3 exitDir=mantleForward;
