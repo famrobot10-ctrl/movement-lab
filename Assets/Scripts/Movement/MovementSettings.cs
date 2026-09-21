@@ -26,7 +26,7 @@ public class MovementSettings {
  [Header("Wall Bounce")]
  public float wallBounceOutwardVelocity=8f,wallBounceForwardVelocity=5f,wallBounceVerticalVelocity=6f,wallDetectionDistance=.75f,wallBounceLockout=.18f;
  [Header("Mantle / Boost")]
- public float mantleReach=1.1f,mantleHeight=1.5f,mantleShoulderHeight=1.42f,mantleSpeed=5f,mantleDuration=.28f,mantleSlideSpeed=8f,mantleSlideDuration=.55f,mantleSlideMaxAngle=89f,mantleSlideMomentumRetention=.9f,edgeBoost=1.12f,cornerBoost=1.12f;
+ public float mantleReach=1.1f,mantleHeight=1.5f,mantleShoulderHeight=1.42f,mantleSpeed=5f,mantleDuration=.42f,mantleSlideSpeed=8f,mantleSlideDuration=.55f,mantleSlideMaxAngle=89f,mantleSlideMomentumRetention=.9f,edgeBoost=1.12f,cornerBoost=1.12f;
  [Header("Stamina")]
  [Min(1)] public int staminaBars=3; public float staminaRegenDelay=1.2f,staminaRegenBarsPerSecond=.75f;
  [Header("World")]
