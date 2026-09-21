@@ -11,7 +11,7 @@ public class PlayerMotor:MonoBehaviour{
  void Update(){if(Time.timeScale==0){input.ConsumeFrameButtons();return;}stamina.Tick();bool grounded=cc.isGrounded;
  if(grounded&&!wasGrounded){Vector3 landingH=Vector3.ProjectOnPlane(velocity,Vector3.up);if(landingH.magnitude>settings.sprintSpeed){landingH=landingH.normalized*settings.sprintSpeed;velocity=new Vector3(landingH.x,velocity.y,landingH.z);}}
  if(grounded){doubleJumpUsed=false;if(velocity.y<0)velocity.y=-2;}Vector3 wish=Wish();
- if(mantling){UpdateMantle();wasGrounded=cc.isGrounded;LogSpeed();input.ConsumeFrameButtons();return;}
+ if(mantling){if(input.CrouchPressed)mantleSlideQueued=!mantleSlideQueued;UpdateMantle();wasGrounded=cc.isGrounded;LogSpeed();input.ConsumeFrameButtons();return;}
  if(input.JumpHeld&&TryStartMantle(wish)){wasGrounded=cc.isGrounded;LogSpeed();input.ConsumeFrameButtons();return;}
  HandleCrouchInput(grounded);HandleSlide(grounded);HandleDodge(wish);HandleJump(grounded,wish);HandleDownDash(grounded);if(dodgeTimer<0)Locomotion(grounded,wish);if(!grounded)velocity.y=Mathf.Max(velocity.y-settings.gravity*Time.deltaTime,-settings.maxFallSpeed);cc.Move(velocity*Time.deltaTime);wasGrounded=cc.isGrounded;LogSpeed();input.ConsumeFrameButtons();}
  Vector3 Wish(){Vector3 f=cameraTransform?Vector3.ProjectOnPlane(cameraTransform.forward,Vector3.up).normalized:transform.forward,r=cameraTransform?Vector3.ProjectOnPlane(cameraTransform.right,Vector3.up).normalized:transform.right;return Vector3.ClampMagnitude(f*input.Move.y+r*input.Move.x,1);}
@@ -113,8 +113,17 @@ public class PlayerMotor:MonoBehaviour{
    Debug.Log(string.Format("[Mantle-Slide] Triggered | Speed {0:0.00} m/s | Exit Angle {1:0.0}° | Direction ({2:0.00}, {3:0.00})",exitSpeed,exitAngle,exitDir.x,exitDir.z));
   }else{velocity=mantleForward*settings.walkSpeed;momentumHeading=mantleForward;CurrentTechnique="Mantle";}
  }
- void HandleCrouchInput(bool grounded){if(input.CrouchPressed&&grounded){crouchPressedAt=Time.time;crouchHeld=true;}if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold&&!sliding)ToggleCrouch();if(sliding)sliding=false;crouchHeld=false;}}
- void HandleSlide(bool grounded){if(!grounded||!input.CrouchHeld){if(sliding&&!input.CrouchHeld){sliding=false;if(crouched)SetCrouchGeometry();else SetStandingGeometry();}return;}if(Time.time-crouchPressedAt<settings.crouchHoldThreshold)return;float speed=Vector3.ProjectOnPlane(velocity,Vector3.up).magnitude;if(speed>=settings.slideEntrySpeed){if(!sliding){sliding=true;crouched=false;SetCrouchGeometry();}CurrentTechnique="Slide";}}
+ void HandleCrouchInput(bool grounded){
+  // Crouch presses are accepted immediately, even during a slide or while airborne.
+  // A tap during a slide cancels it and attempts to stand instead of being swallowed.
+  if(input.CrouchPressed){
+   if(sliding){sliding=false;mantleSlideTimer=0;crouchHeld=false;if(CanStand()){crouched=false;SetStandingGeometry();}else{crouched=true;SetCrouchGeometry();}return;}
+   if(grounded){crouchPressedAt=Time.time;crouchHeld=true;}
+   else if(crouched&&CanStand()){crouched=false;SetStandingGeometry();}
+  }
+  if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold)ToggleCrouch();crouchHeld=false;}
+ }
+ void HandleSlide(bool grounded){if(!grounded||!input.CrouchHeld){if(sliding&&!input.CrouchHeld){sliding=false;mantleSlideTimer=0;if(crouched)SetCrouchGeometry();else if(CanStand())SetStandingGeometry();else{crouched=true;SetCrouchGeometry();}}return;}if(Time.time-crouchPressedAt<settings.crouchHoldThreshold)return;float speed=Vector3.ProjectOnPlane(velocity,Vector3.up).magnitude;if(speed>=settings.slideEntrySpeed){if(!sliding){sliding=true;crouched=false;SetCrouchGeometry();}CurrentTechnique="Slide";}}
  void ToggleCrouch(){if(crouched){if(CanStand()){crouched=false;SetStandingGeometry();}}else{crouched=true;SetCrouchGeometry();}}
  void SetStandingGeometry(){cc.height=1.7018f;cc.radius=.4967f;cc.stepOffset=.30f;cc.skinWidth=.08f;cc.minMoveDistance=.001f;cc.slopeLimit=45;cc.center=Vector3.zero;SetVisual(false);}
  void SetCrouchGeometry(){cc.height=.8509f;cc.radius=.4016f;cc.center=new Vector3(0,-.42545f,0);SetVisual(true);}
