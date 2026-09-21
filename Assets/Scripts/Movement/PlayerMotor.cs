@@ -73,12 +73,15 @@ public class PlayerMotor:MonoBehaviour{
  void LogSpeed(){if(Time.time<nextSpeedLog)return;nextSpeedLog=Time.time+.25f;Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);Debug.Log(string.Format("[Movement] {0} | Speed {1:0.00} m/s | X {2:0.00} | Z {3:0.00} | Stick {4:0.00} ({5:0.00},{6:0.00}) | Ramp {7:0.00}",CurrentTechnique,h.magnitude,h.x,h.z,StickMagnitude,MoveInput.x,MoveInput.y,forwardRamp));}
  bool TryStartMantle(Vector3 wish){
   Vector3 f=wish.sqrMagnitude>.05f?wish.normalized:(cameraTransform?Vector3.ProjectOnPlane(cameraTransform.forward,Vector3.up).normalized:transform.forward);
-  Vector3 chest=transform.position+Vector3.up*.85f;
-  if(!Physics.Raycast(chest,f,out RaycastHit wall,settings.mantleReach,worldMask,QueryTriggerInteraction.Ignore))return false;
-  Vector3 topProbe=wall.point+f*.12f+Vector3.up*(settings.mantleHeight+.35f);
-  if(!Physics.Raycast(topProbe,Vector3.down,out RaycastHit top,settings.mantleHeight+.7f,worldMask,QueryTriggerInteraction.Ignore))return false;
-  float rise=top.point.y-(transform.position.y-cc.height*.5f);
-  if(rise<.25f||rise>settings.mantleHeight)return false;
+  float feetY=transform.position.y-cc.height*.5f;
+  // Detect the wall from lower torso height, then allow its top to rise to shoulder height.
+  // This avoids the old chest-ray failure where shoulder-high ledges were invisible.
+  Vector3 wallProbe=transform.position+Vector3.up*.45f;
+  if(!Physics.Raycast(wallProbe,f,out RaycastHit wall,settings.mantleReach,worldMask,QueryTriggerInteraction.Ignore))return false;
+  Vector3 topProbe=wall.point+f*.12f;topProbe.y=feetY+settings.mantleShoulderHeight+.25f;
+  if(!Physics.Raycast(topProbe,Vector3.down,out RaycastHit top,settings.mantleShoulderHeight+.45f,worldMask,QueryTriggerInteraction.Ignore))return false;
+  float rise=top.point.y-feetY;
+  if(rise<.25f||rise>Mathf.Min(settings.mantleHeight,settings.mantleShoulderHeight))return false;
   Vector3 landing=top.point+f*(cc.radius+.18f)+Vector3.up*(cc.height*.5f+.03f);
   if(Physics.CheckCapsule(landing+Vector3.up*(-cc.height*.5f+cc.radius),landing+Vector3.up*(cc.height*.5f-cc.radius),cc.radius*.9f,worldMask,QueryTriggerInteraction.Ignore))return false;
   mantling=true;mantleSlideQueued=false;mantleTimer=0;mantleStart=transform.position;mantleEnd=landing;mantleForward=f;velocity=Vector3.zero;forwardRamp=0;CurrentTechnique="Mantle";return true;
@@ -88,8 +91,18 @@ public class PlayerMotor:MonoBehaviour{
   float t=Mathf.Clamp01(mantleTimer/Mathf.Max(.01f,settings.mantleDuration));float eased=Smooth(t);
   Vector3 next=Vector3.Lerp(mantleStart,mantleEnd,eased);cc.Move(next-transform.position);
   if(t<1)return;mantling=false;
-  if(mantleSlideQueued){sliding=true;crouched=false;SetCrouchGeometry();mantleSlideTimer=settings.mantleSlideDuration;velocity=mantleForward*settings.mantleSlideSpeed;CurrentTechnique="Mantle-Slide";}
-  else{velocity=mantleForward*settings.walkSpeed;CurrentTechnique="Mantle";}
+  if(mantleSlideQueued){
+   Vector3 exitDir=mantleForward;
+   Vector3 liveWish=Wish();
+   if(liveWish.sqrMagnitude>.01f){
+    float signed=Vector3.SignedAngle(mantleForward,liveWish.normalized,Vector3.up);
+    signed=Mathf.Clamp(signed,-settings.mantleSlideMaxAngle,settings.mantleSlideMaxAngle);
+    exitDir=Quaternion.AngleAxis(signed,Vector3.up)*mantleForward;
+   }
+   float incomingSpeed=HorizontalSpeed;
+   float exitSpeed=Mathf.Max(settings.mantleSlideSpeed,incomingSpeed*settings.mantleSlideMomentumRetention);
+   sliding=true;crouched=false;SetCrouchGeometry();mantleSlideTimer=settings.mantleSlideDuration;velocity=exitDir.normalized*exitSpeed;momentumHeading=exitDir.normalized;CurrentTechnique="Mantle-Slide";
+  }else{velocity=mantleForward*settings.walkSpeed;momentumHeading=mantleForward;CurrentTechnique="Mantle";}
  }
  void HandleCrouchInput(bool grounded){if(input.CrouchPressed&&grounded){crouchPressedAt=Time.time;crouchHeld=true;}if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold&&!sliding)ToggleCrouch();if(sliding)sliding=false;crouchHeld=false;}}
  void HandleSlide(bool grounded){if(!grounded||!input.CrouchHeld){if(sliding&&!input.CrouchHeld){sliding=false;if(crouched)SetCrouchGeometry();else SetStandingGeometry();}return;}if(Time.time-crouchPressedAt<settings.crouchHoldThreshold)return;float speed=Vector3.ProjectOnPlane(velocity,Vector3.up).magnitude;if(speed>=settings.slideEntrySpeed){if(!sliding){sliding=true;crouched=false;SetCrouchGeometry();}CurrentTechnique="Slide";}}
