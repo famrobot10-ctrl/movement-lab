@@ -9,7 +9,7 @@ public static class PrototypeSceneBuilder{
  static GameObject Box(string n,Vector3 p,Vector3 s,Transform parent){var g=GameObject.CreatePrimitive(PrimitiveType.Cube);g.name=n;g.transform.SetParent(parent);g.transform.position=p;g.transform.localScale=s;return g;}
  static void Outline(GameObject g,Material edge,float thickness=.035f){
   Vector3 s=g.transform.localScale;Vector3 p=g.transform.position;
-  Vector3[] c={{new Vector3(-1,-1,-1)},{new Vector3(1,-1,-1)},{new Vector3(-1,-1,1)},{new Vector3(1,-1,1)},{new Vector3(-1,1,-1)},{new Vector3(1,1,-1)},{new Vector3(-1,1,1)},{new Vector3(1,1,1)}};
+  Vector3[] c={new Vector3(-1,-1,-1),new Vector3(1,-1,-1),new Vector3(-1,-1,1),new Vector3(1,-1,1),new Vector3(-1,1,-1),new Vector3(1,1,-1),new Vector3(-1,1,1),new Vector3(1,1,1)};
   int[,] e={{0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{4,6},{5,7},{0,4},{1,5},{2,6},{3,7}};
   for(int k=0;k<12;k++){Vector3 a=p+Vector3.Scale(c[e[k,0]]*.5f,s),z=p+Vector3.Scale(c[e[k,1]]*.5f,s);Vector3 d=z-a;var q=GameObject.CreatePrimitive(PrimitiveType.Cube);q.name=g.name+" Edge";q.transform.SetParent(g.transform.parent);q.transform.position=(a+z)*.5f;q.transform.rotation=Quaternion.FromToRotation(Vector3.right,d.normalized);q.transform.localScale=new Vector3(d.magnitude,thickness,thickness);Object.DestroyImmediate(q.GetComponent<BoxCollider>());q.GetComponent<Renderer>().sharedMaterial=edge;}
  }
