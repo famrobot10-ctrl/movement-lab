@@ -102,6 +102,8 @@ public class PlayerMotor:MonoBehaviour{
    float incomingSpeed=HorizontalSpeed;
    float exitSpeed=Mathf.Max(settings.mantleSlideSpeed,incomingSpeed*settings.mantleSlideMomentumRetention);
    sliding=true;crouched=false;SetCrouchGeometry();mantleSlideTimer=settings.mantleSlideDuration;velocity=exitDir.normalized*exitSpeed;momentumHeading=exitDir.normalized;CurrentTechnique="Mantle-Slide";
+   float exitAngle=Vector3.SignedAngle(mantleForward,exitDir.normalized,Vector3.up);
+   Debug.Log(string.Format("[Mantle-Slide] Triggered | Speed {0:0.00} m/s | Exit Angle {1:0.0}° | Direction ({2:0.00}, {3:0.00})",exitSpeed,exitAngle,exitDir.x,exitDir.z));
   }else{velocity=mantleForward*settings.walkSpeed;momentumHeading=mantleForward;CurrentTechnique="Mantle";}
  }
  void HandleCrouchInput(bool grounded){if(input.CrouchPressed&&grounded){crouchPressedAt=Time.time;crouchHeld=true;}if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold&&!sliding)ToggleCrouch();if(sliding)sliding=false;crouchHeld=false;}}
