@@ -2,7 +2,7 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController),typeof(PlayerInputState),typeof(StaminaSystem))]
 public class PlayerMotor:MonoBehaviour{
  public MovementSettings settings=new MovementSettings();public Transform cameraTransform;public Animator animator;public LayerMask worldMask=~0;
- CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity,momentumHeading;float forwardRamp,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1,nextSpeedLog;bool wasGrounded;bool doubleJumpUsed,crouched,sliding,crouchHeld;
+ CharacterController cc;PlayerInputState input;StaminaSystem stamina;Vector3 velocity,momentumHeading;float forwardRamp,dodgeTimer=-1,lastAirCrouch=-99,lastWallBounce=-99,crouchPressedAt=-1,nextSpeedLog;bool wasGrounded;bool doubleJumpUsed,crouched,sliding,crouchHeld,mantling,mantleSlideQueued;Vector3 mantleStart,mantleEnd,mantleForward;float mantleTimer,mantleSlideTimer;
  public string CurrentTechnique{get;private set;}="Idle";public Vector3 Velocity=>velocity;
  public Vector2 MoveInput=>input!=null?input.Move:Vector2.zero;
  public float StickMagnitude=>input!=null?Mathf.Clamp01(input.Move.magnitude):0f;
@@ -10,10 +10,13 @@ public class PlayerMotor:MonoBehaviour{
  void Awake(){cc=GetComponent<CharacterController>();input=GetComponent<PlayerInputState>();stamina=GetComponent<StaminaSystem>();stamina.Initialize(settings);SetStandingGeometry();}
  void Update(){if(Time.timeScale==0){input.ConsumeFrameButtons();return;}stamina.Tick();bool grounded=cc.isGrounded;
  if(grounded&&!wasGrounded){Vector3 landingH=Vector3.ProjectOnPlane(velocity,Vector3.up);if(landingH.magnitude>settings.sprintSpeed){landingH=landingH.normalized*settings.sprintSpeed;velocity=new Vector3(landingH.x,velocity.y,landingH.z);}}
- if(grounded){doubleJumpUsed=false;if(velocity.y<0)velocity.y=-2;}Vector3 wish=Wish();HandleCrouchInput(grounded);HandleSlide(grounded);HandleDodge(wish);HandleJump(grounded,wish);HandleDownDash(grounded);if(dodgeTimer<0)Locomotion(grounded,wish);if(!grounded)velocity.y=Mathf.Max(velocity.y-settings.gravity*Time.deltaTime,-settings.maxFallSpeed);cc.Move(velocity*Time.deltaTime);wasGrounded=cc.isGrounded;LogSpeed();input.ConsumeFrameButtons();}
+ if(grounded){doubleJumpUsed=false;if(velocity.y<0)velocity.y=-2;}Vector3 wish=Wish();
+ if(mantling){UpdateMantle();wasGrounded=cc.isGrounded;LogSpeed();input.ConsumeFrameButtons();return;}
+ if(input.JumpHeld&&TryStartMantle(wish)){wasGrounded=cc.isGrounded;LogSpeed();input.ConsumeFrameButtons();return;}
+ HandleCrouchInput(grounded);HandleSlide(grounded);HandleDodge(wish);HandleJump(grounded,wish);HandleDownDash(grounded);if(dodgeTimer<0)Locomotion(grounded,wish);if(!grounded)velocity.y=Mathf.Max(velocity.y-settings.gravity*Time.deltaTime,-settings.maxFallSpeed);cc.Move(velocity*Time.deltaTime);wasGrounded=cc.isGrounded;LogSpeed();input.ConsumeFrameButtons();}
  Vector3 Wish(){Vector3 f=cameraTransform?Vector3.ProjectOnPlane(cameraTransform.forward,Vector3.up).normalized:transform.forward,r=cameraTransform?Vector3.ProjectOnPlane(cameraTransform.right,Vector3.up).normalized:transform.right;return Vector3.ClampMagnitude(f*input.Move.y+r*input.Move.x,1);}
  float Smooth(float t){t=Mathf.Clamp01(t);return t*t*(3-2*t);}
- void Locomotion(bool grounded,Vector3 wish){Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);
+ void Locomotion(bool grounded,Vector3 wish){if(mantleSlideTimer>0){mantleSlideTimer-=Time.deltaTime;if(mantleSlideTimer<=0&&!input.CrouchHeld){sliding=false;if(crouched)SetCrouchGeometry();else SetStandingGeometry();}}Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);
   if(grounded){if(sliding){h=Vector3.MoveTowards(h,Vector3.zero,settings.slideFriction*Time.deltaTime);CurrentTechnique="Slide";}else{
    float stick=Mathf.Clamp01(input.Move.magnitude);
    bool hasInput=stick>.05f;
@@ -68,6 +71,26 @@ public class PlayerMotor:MonoBehaviour{
    h=Vector3.ClampMagnitude(h,settings.maxAirSpeed);}
   velocity=new Vector3(h.x,velocity.y,h.z);}
  void LogSpeed(){if(Time.time<nextSpeedLog)return;nextSpeedLog=Time.time+.25f;Vector3 h=Vector3.ProjectOnPlane(velocity,Vector3.up);Debug.Log(string.Format("[Movement] {0} | Speed {1:0.00} m/s | X {2:0.00} | Z {3:0.00} | Stick {4:0.00} ({5:0.00},{6:0.00}) | Ramp {7:0.00}",CurrentTechnique,h.magnitude,h.x,h.z,StickMagnitude,MoveInput.x,MoveInput.y,forwardRamp));}
+ bool TryStartMantle(Vector3 wish){
+  Vector3 f=wish.sqrMagnitude>.05f?wish.normalized:(cameraTransform?Vector3.ProjectOnPlane(cameraTransform.forward,Vector3.up).normalized:transform.forward);
+  Vector3 chest=transform.position+Vector3.up*.85f;
+  if(!Physics.Raycast(chest,f,out RaycastHit wall,settings.mantleReach,worldMask,QueryTriggerInteraction.Ignore))return false;
+  Vector3 topProbe=wall.point+f*.12f+Vector3.up*(settings.mantleHeight+.35f);
+  if(!Physics.Raycast(topProbe,Vector3.down,out RaycastHit top,settings.mantleHeight+.7f,worldMask,QueryTriggerInteraction.Ignore))return false;
+  float rise=top.point.y-(transform.position.y-cc.height*.5f);
+  if(rise<.25f||rise>settings.mantleHeight)return false;
+  Vector3 landing=top.point+f*(cc.radius+.18f)+Vector3.up*(cc.height*.5f+.03f);
+  if(Physics.CheckCapsule(landing+Vector3.up*(-cc.height*.5f+cc.radius),landing+Vector3.up*(cc.height*.5f-cc.radius),cc.radius*.9f,worldMask,QueryTriggerInteraction.Ignore))return false;
+  mantling=true;mantleSlideQueued=false;mantleTimer=0;mantleStart=transform.position;mantleEnd=landing;mantleForward=f;velocity=Vector3.zero;forwardRamp=0;CurrentTechnique="Mantle";return true;
+ }
+ void UpdateMantle(){
+  mantleTimer+=Time.deltaTime;if(input.CrouchHeld)mantleSlideQueued=true;
+  float t=Mathf.Clamp01(mantleTimer/Mathf.Max(.01f,settings.mantleDuration));float eased=Smooth(t);
+  Vector3 next=Vector3.Lerp(mantleStart,mantleEnd,eased);cc.Move(next-transform.position);
+  if(t<1)return;mantling=false;
+  if(mantleSlideQueued){sliding=true;crouched=false;SetCrouchGeometry();mantleSlideTimer=settings.mantleSlideDuration;velocity=mantleForward*settings.mantleSlideSpeed;CurrentTechnique="Mantle-Slide";}
+  else{velocity=mantleForward*settings.walkSpeed;CurrentTechnique="Mantle";}
+ }
  void HandleCrouchInput(bool grounded){if(input.CrouchPressed&&grounded){crouchPressedAt=Time.time;crouchHeld=true;}if(crouchHeld&&!input.CrouchHeld){float held=Time.time-crouchPressedAt;if(held<settings.crouchHoldThreshold&&!sliding)ToggleCrouch();if(sliding)sliding=false;crouchHeld=false;}}
  void HandleSlide(bool grounded){if(!grounded||!input.CrouchHeld){if(sliding&&!input.CrouchHeld){sliding=false;if(crouched)SetCrouchGeometry();else SetStandingGeometry();}return;}if(Time.time-crouchPressedAt<settings.crouchHoldThreshold)return;float speed=Vector3.ProjectOnPlane(velocity,Vector3.up).magnitude;if(speed>=settings.slideEntrySpeed){if(!sliding){sliding=true;crouched=false;SetCrouchGeometry();}CurrentTechnique="Slide";}}
  void ToggleCrouch(){if(crouched){if(CanStand()){crouched=false;SetStandingGeometry();}}else{crouched=true;SetCrouchGeometry();}}
