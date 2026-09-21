@@ -1,17 +1,20 @@
 #if UNITY_EDITOR
 using UnityEditor;using UnityEditor.SceneManagement;using UnityEngine;using UnityEngine.SceneManagement;
 public static class PrototypeSceneBuilder{
- static void SetColor(Material m,Color c){if(m.HasProperty("_BaseColor"))m.SetColor("_BaseColor",c);if(m.HasProperty("_Color"))m.SetColor("_Color",c);}
+ static Material Solid(string name,Color c){
+  var sh=Shader.Find("Sprites/Default");
+  if(!sh)sh=Shader.Find("UI/Default");
+  var m=new Material(sh);m.name=name;m.color=c;return m;
+ }
  static GameObject Box(string n,Vector3 p,Vector3 s,Transform parent){var g=GameObject.CreatePrimitive(PrimitiveType.Cube);g.name=n;g.transform.SetParent(parent);g.transform.position=p;g.transform.localScale=s;return g;}
  [MenuItem("Movement Prototype/Build Complete Test Arena")]
  public static void Build(){var scene=EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);var env=new GameObject("MOVEMENT TEST ARENA").transform;
  var floor=Box("Main Floor",new Vector3(0,-.61f,220),new Vector3(32,1,600),env);
- var sh=Shader.Find("Universal Render Pipeline/Lit");if(!sh)sh=Shader.Find("Universal Render Pipeline/Simple Lit");if(!sh)sh=Shader.Find("Standard");
- var grass=new Material(sh);SetColor(grass,new Color(.18f,.52f,.16f));floor.GetComponent<Renderer>().sharedMaterial=grass;
+ var grass=Solid("Arena Green",new Color(.18f,.52f,.16f));floor.GetComponent<Renderer>().sharedMaterial=grass;
  var run=new GameObject("01 Acceleration Runway").transform;run.SetParent(env);
  for(int meters=0;meters<=500;meters+=100){float z=-30+meters;Box("Distance Line "+meters+"m",new Vector3(0,.03f,z),new Vector3(30,.05f,.18f),run);var sign=Box(meters+"m",new Vector3(-13,1.25f,z),new Vector3(.18f,2.5f,2.5f),run);var label=new GameObject("Label "+meters+"m");label.transform.SetParent(sign.transform,false);var tm=label.AddComponent<TextMesh>();tm.text=meters+"m";tm.fontSize=64;tm.characterSize=.08f;tm.anchor=TextAnchor.MiddleCenter;tm.alignment=TextAlignment.Center;label.transform.localPosition=new Vector3(-.6f,0,0);label.transform.localRotation=Quaternion.Euler(0,-90,0);}
  var mantle=new GameObject("03 Mantle + Mantle-Slide Lab").transform;mantle.SetParent(env);
- var gray=new Material(sh);SetColor(gray,new Color(.42f,.42f,.42f));
+ var gray=Solid("Mantle Gray",new Color(.42f,.42f,.42f));
  var ma=Box("Mantle Approach Platform",new Vector3(8,.09f,5),new Vector3(10,.4f,12),mantle);ma.GetComponent<Renderer>().sharedMaterial=gray;
  var md=Box("Shoulder-Height Mantle Deck",new Vector3(8,.60f,14),new Vector3(14,1.42f,8),mantle);md.GetComponent<Renderer>().sharedMaterial=gray;
  var ml=Box("Mantle-Slide Left Runout",new Vector3(1,.60f,14),new Vector3(8,1.42f,5),mantle);ml.GetComponent<Renderer>().sharedMaterial=gray;
